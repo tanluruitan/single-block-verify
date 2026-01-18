@@ -1,0 +1,355 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>单场半火拦截验证成功</title>
+    <style>
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+        body {
+            margin: 0;
+            padding: 0;
+            font-family: 'Microsoft YaHei', sans-serif;
+            overflow: hidden;
+            background: linear-gradient(135deg, #1a1a2e 0%, #16213e 100%);
+            height: 100vh;
+        }
+        /* 枫叶飘落效果 */
+        .maple-container {
+            position: fixed;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            pointer-events: none;
+            z-index: 1;
+        }
+        .maple {
+            position: absolute;
+            background: url('data:image/svg+xml;utf8,<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 100 100"><path fill="%23e74c3c" d="M50,10 C30,20 10,40 10,60 C10,80 30,90 50,90 C70,90 90,80 90,60 C90,40 70,20 50,10 Z M50,30 C55,30 60,35 60,40 C60,45 55,50 50,50 C45,50 40,45 40,40 C40,35 45,30 50,30 Z"/></svg>') no-repeat center;
+            background-size: contain;
+            width: 30px;
+            height: 30px;
+            opacity: 0.8;
+            animation: fall linear infinite;
+        }
+        @keyframes fall {
+            0% { transform: translateY(-50px) rotate(0deg); opacity: 0; }
+            10% { opacity: 0.8; }
+            90% { opacity: 0.8; }
+            100% { transform: translateY(100vh) rotate(360deg); opacity: 0; }
+        }
+        /* 卡片样式（优化拥挤问题） */
+        .card {
+            position: absolute;
+            top: 50%;
+            left: 50%;
+            transform: translate(-50%, -50%);
+            width: 90%;
+            max-width: 500px;
+            background: rgba(255, 255, 255, 0.1);
+            backdrop-filter: blur(10px);
+            border-radius: 15px;
+            padding: 30px 20px; /* 减少内边距 */
+            box-shadow: 0 8px 32px rgba(0, 0, 0, 0.3);
+            border: 1px solid rgba(255, 255, 255, 0.2);
+            z-index: 2;
+            text-align: center;
+        }
+        .card h1 {
+            color: #fff;
+            font-size: 26px; /* 缩小标题字号 */
+            margin-bottom: 8px;
+            text-shadow: 0 2px 4px rgba(0, 0, 0, 0.3);
+        }
+        .card .sub-title {
+            color: #f1f1f1;
+            font-size: 16px; /* 缩小副标题字号 */
+            margin-bottom: 20px;
+            opacity: 0.9;
+        }
+        .info-list {
+            color: #fff;
+            font-size: 14px; /* 缩小列表字号 */
+            line-height: 2; /* 减小行高 */
+            text-align: left;
+            margin: 0 auto;
+            max-width: 400px;
+            padding: 0 10px; /* 增加内边距优化排版 */
+        }
+        .info-list span {
+            color: #ff9a8b;
+            font-weight: bold;
+        }
+        .time {
+            margin-top: 20px; /* 减少间距 */
+            padding: 12px;
+            background: rgba(255, 255, 255, 0.08);
+            border-radius: 8px;
+            color: #fff;
+            font-size: 16px;
+            font-weight: bold;
+        }
+        /* 检测相关样式 */
+        .loading-dots {
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            margin: 15px 0; /* 减少间距 */
+        }
+        .dot {
+            width: 12px;
+            height: 12px;
+            margin: 0 5px;
+            background: linear-gradient(135deg, #4da6ff, #81c3ff);
+            border-radius: 50%;
+            animation: bounce 1s infinite ease-in-out;
+            box-shadow: 0 3px 8px rgba(39,130,215,0.4);
+        }
+        .dot:nth-child(1) { animation-delay: -0.32s; }
+        .dot:nth-child(2) { animation-delay: -0.16s; }
+        .dot:nth-child(3) { animation-delay: 0s; }
+        .status-icon {
+            width: 70px; /* 缩小图标 */
+            height: 70px;
+            margin: 0 auto 15px; /* 减少间距 */
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            border-radius: 50%;
+            background: rgba(255,255,255,0.1);
+            box-shadow: 0 3px 10px rgba(0,0,0,0.1) inset;
+        }
+        .success-icon {
+            color: #66ff99;
+            font-size: 40px; /* 缩小图标 */
+            font-weight: bold;
+            text-shadow: 0 3px 12px rgba(74,222,128,0.3);
+        }
+        .error-icon {
+            position: relative;
+            width: 40px; /* 缩小图标 */
+            height: 40px;
+        }
+        .error-icon::before, .error-icon::after {
+            content: '';
+            position: absolute;
+            width: 40px;
+            height: 8px;
+            background: linear-gradient(135deg, #ff6b6b, #ff9999);
+            border-radius: 5px;
+            top: 50%;
+            left: 50%;
+            box-shadow: 0 3px 8px rgba(244,67,54,0.3);
+        }
+        .error-icon::before { transform: translate(-50%, -50%) rotate(45deg); }
+        .error-icon::after { transform: translate(-50%, -50%) rotate(-45deg); }
+        .retry-btn {
+            width: 80%;
+            padding: 12px 0; /* 减少按钮内边距 */
+            margin-top: 20px; /* 减少间距 */
+            border-radius: 20px;
+            background: rgba(77,166,255,0.2);
+            backdrop-filter: blur(8px);
+            border: 1px solid rgba(129,195,255,0.3);
+            color: #81c3ff;
+            font-size: 15px;
+            font-weight: 600;
+            text-align: center;
+            letter-spacing: 0.05em;
+            box-shadow: 0 4px 12px rgba(39,130,215,0.15);
+            cursor: pointer;
+            transition: all 0.3s ease;
+            opacity: 0;
+            pointer-events: none;
+            border: none;
+            outline: none;
+        }
+        .retry-btn.active {
+            opacity: 1;
+            pointer-events: auto;
+        }
+        .retry-btn:hover {
+            background: rgba(77,166,255,0.3);
+            border-color: rgba(129,195,255,0.5);
+            color: #b3d9ff;
+            box-shadow: 0 6px 16px rgba(39,130,215,0.2);
+            transform: translateY(-2px);
+        }
+        .retry-btn:active {
+            transform: translateY(0);
+            box-shadow: 0 2px 8px rgba(39,130,215,0.15);
+        }
+        @keyframes bounce {
+            0%, 80%, 100% { transform: translateY(0); }
+            40% { transform: translateY(-22px); }
+        }
+    </style>
+</head>
+<body>
+    <div class="maple-container" id="mapleContainer"></div>
+    <div class="card">
+        <h1>单场半火拦截验证</h1>
+        <p class="sub-title">正在检测网络连通性...</p>
+        
+        <div id="statusIcon" class="status-icon">
+            <div class="loading-dots">
+                <div class="dot"></div>
+                <div class="dot"></div>
+                <div class="dot"></div>
+            </div>
+        </div>
+        
+        <div class="info-list">
+            <p>✅ 支持功能：<span>上分 / 内核 / 半火</span></p>
+            <p>📍 代理位置：<span>广西</span></p>
+            <p>📶 网络延迟：<span id="ping">检测中...</span>（波动 0~40ms）</p>
+            <p>🌐 IP 波动：<span id="ipPing">检测中...</span>（波动 0~40ms）</p>
+            <p>🔍 检测状态：<span id="detectStatus">连接 4399.com 中...</span></p>
+        </div>
+        
+        <div class="time" id="beijingTime">北京时间：2025-11-22 12:00:00</div>
+        <button id="retryBtn" class="retry-btn">重新检测</button>
+    </div>
+
+    <script>
+        let isDetecting = false;
+        let pingInterval = null;
+        let ipPingInterval = null;
+
+        // 枫叶效果
+        function createMapleLeaves() {
+            const container = document.getElementById('mapleContainer');
+            setInterval(() => {
+                const maple = document.createElement('div');
+                maple.classList.add('maple');
+                const left = Math.random() * 100;
+                const size = 15 + Math.random() * 25;
+                const duration = 8 + Math.random() * 12;
+                const delay = Math.random() * 5;
+
+                maple.style.left = `${left}%`;
+                maple.style.width = `${size}px`;
+                maple.style.height = `${size}px`;
+                maple.style.animationDuration = `${duration}s`;
+                maple.style.animationDelay = `${delay}s`;
+
+                container.appendChild(maple);
+                setTimeout(() => maple.remove(), (duration + delay) * 1000);
+            }, 300);
+        }
+
+        // 实时时间
+        function updateBeijingTime() {
+            const timeElement = document.getElementById('beijingTime');
+            setInterval(() => {
+                const now = new Date();
+                const year = now.getFullYear();
+                const month = String(now.getMonth() + 1).padStart(2, '0');
+                const day = String(now.getDate()).padStart(2, '0');
+                const hour = String(now.getHours()).padStart(2, '0');
+                const minute = String(now.getMinutes()).padStart(2, '0');
+                const second = String(now.getSeconds()).padStart(2, '0');
+                timeElement.textContent = `北京时间：${year}-${month}-${day} ${hour}:${minute}:${second}`;
+            }, 1000);
+        }
+
+        // 实时更新延迟/波动
+        function startRealTimePings() {
+            // 清除旧定时器
+            if (pingInterval) clearInterval(pingInterval);
+            if (ipPingInterval) clearInterval(ipPingInterval);
+            
+            // 网络延迟（每1秒更新）
+            pingInterval = setInterval(() => {
+                document.getElementById('ping').textContent = `${Math.floor(Math.random() * 41)}ms`;
+            }, 1000);
+            
+            // IP波动（每1.5秒更新）
+            ipPingInterval = setInterval(() => {
+                document.getElementById('ipPing').textContent = `${Math.floor(Math.random() * 41)}ms`;
+            }, 1500);
+        }
+
+        // 停止实时更新
+        function stopRealTimePings() {
+            if (pingInterval) clearInterval(pingInterval);
+            if (ipPingInterval) clearInterval(ipPingInterval);
+        }
+
+        // 检测逻辑
+        function startDetection() {
+            isDetecting = true;
+            const statusIcon = document.getElementById('statusIcon');
+            const pingElement = document.getElementById('ping');
+            const ipPingElement = document.getElementById('ipPing');
+            const detectStatus = document.getElementById('detectStatus');
+            const retryBtn = document.getElementById('retryBtn');
+            const subTitle = document.querySelector('.sub-title');
+
+            // 重置状态
+            statusIcon.innerHTML = `
+                <div class="loading-dots">
+                    <div class="dot"></div>
+                    <div class="dot"></div>
+                    <div class="dot"></div>
+                </div>
+            `;
+            pingElement.textContent = '检测中...';
+            ipPingElement.textContent = '检测中...';
+            detectStatus.textContent = '连接 4399.com 中...';
+            subTitle.textContent = '正在检测网络连通性...';
+            retryBtn.classList.remove('active');
+            stopRealTimePings(); // 检测中暂停实时更新
+
+            setTimeout(() => {
+                fetch('https://4399.com', { 
+                    method: 'HEAD', 
+                    mode: 'no-cors',
+                    timeout: 8000
+                })
+                .then(() => {
+                    // 异常状态
+                    statusIcon.innerHTML = '<div class="error-icon"></div>';
+                    startRealTimePings(); // 开始实时跳动
+                    detectStatus.innerHTML = '<span style="color:#ff6b6b">网络连通异常</span>';
+                    subTitle.textContent = '模块运行不成功';
+                    isDetecting = false;
+                    retryBtn.classList.add('active');
+                })
+                .catch((error) => {
+                    // 成功状态
+                    statusIcon.innerHTML = '<div class="success-icon">✓</div>';
+                    startRealTimePings(); // 开始实时跳动
+                    detectStatus.innerHTML = '<span style="color:#66ff99">网络检测通过</span>';
+                    subTitle.textContent = '模块运行成功，欢迎使用';
+                    isDetecting = false;
+                    retryBtn.classList.add('active');
+                    if (window.Android) {
+                        try {
+                            window.Android.onDetectionSuccess();
+                        } catch (e) {
+                            console.log("触发脚本启动失败：", e);
+                        }
+                    }
+                });
+            }, 1500);
+        }
+
+        // 重新检测按钮
+        document.getElementById('retryBtn').addEventListener('click', function() {
+            if (isDetecting) return;
+            startDetection();
+        });
+
+        // 初始化
+        createMapleLeaves();
+        updateBeijingTime();
+        startDetection();
+    </script>
+</body>
+</html>
